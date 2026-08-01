@@ -1,0 +1,6 @@
+{
+  "name": "Learning Companion",
+  "description": "Track skills, concepts, and active projects with custom project idea brainstorming, progress metrics, and resume tracking.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
