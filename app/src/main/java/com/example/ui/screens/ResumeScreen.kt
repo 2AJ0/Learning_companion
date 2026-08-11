@@ -148,7 +148,31 @@ fun ResumeScreen(
                     OutlinedButton(
                         onClick = {
                             val fileName = resumeMetadata?.fileName ?: "Resume.pdf"
-                            android.widget.Toast.makeText(context, "Downloading $fileName...", android.widget.Toast.LENGTH_SHORT).show()
+                            val savedFile = java.io.File(context.filesDir, "saved_resume.pdf")
+                            if (savedFile.exists() && savedFile.length() > 0) {
+                                try {
+                                    val downloadsDir = android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS)
+                                    val targetFile = java.io.File(downloadsDir, fileName)
+                                    savedFile.copyTo(targetFile, overwrite = true)
+                                    android.widget.Toast.makeText(
+                                        context,
+                                        "Saved $fileName to Downloads folder!",
+                                        android.widget.Toast.LENGTH_LONG
+                                    ).show()
+                                } catch (e: Exception) {
+                                    android.widget.Toast.makeText(
+                                        context,
+                                        "Saved locally in app storage: ${savedFile.length()} bytes",
+                                        android.widget.Toast.LENGTH_SHORT
+                                    ).show()
+                                }
+                            } else {
+                                android.widget.Toast.makeText(
+                                    context,
+                                    "No PDF uploaded yet. Tap Update to upload a PDF resume.",
+                                    android.widget.Toast.LENGTH_SHORT
+                                ).show()
+                            }
                         },
                         modifier = Modifier
                             .weight(1f)

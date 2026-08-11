@@ -63,7 +63,7 @@ fun ProjectDetailsDialog(
                     value = coreIdea,
                     onValueChange = { coreIdea = it },
                     label = { Text("Core Idea / Description") },
-                    placeholder = { Text("Short core concept behind this project...") },
+                    placeholder = { Text("Core concept and purpose of this project") },
                     modifier = Modifier
                         .fillMaxWidth()
                         .testTag("project_core_idea_input"),
@@ -74,7 +74,7 @@ fun ProjectDetailsDialog(
                     value = tags,
                     onValueChange = { tags = it },
                     label = { Text("Tags / Tech Stack") },
-                    placeholder = { Text("e.g. Kotlin, Compose, Firebase") },
+                    placeholder = { Text("Technologies used (e.g., Kotlin, Compose)") },
                     singleLine = true,
                     modifier = Modifier
                         .fillMaxWidth()
@@ -85,7 +85,7 @@ fun ProjectDetailsDialog(
                     value = featuresToAdd,
                     onValueChange = { featuresToAdd = it },
                     label = { Text("Features to Add / Subtasks") },
-                    placeholder = { Text("• Feature 1\n• Feature 2") },
+                    placeholder = { Text("Enter subtasks or planned features (one per line)") },
                     modifier = Modifier
                         .fillMaxWidth()
                         .testTag("project_features_input"),

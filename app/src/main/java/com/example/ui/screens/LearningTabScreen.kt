@@ -39,8 +39,11 @@ fun LearningTabScreen(
         listOf("All") + concepts.map { it.learningPlatform }.distinct()
     }
 
-    val filteredConcepts = remember(concepts, searchQuery, selectedCategory) {
-        concepts.filter { concept ->
+    var sortOption by remember { mutableStateOf("ORDER") } // ORDER, PRIORITY, DATE, NAME
+    var showSortMenu by remember { mutableStateOf(false) }
+
+    val filteredConcepts = remember(concepts, searchQuery, selectedCategory, sortOption) {
+        val filtered = concepts.filter { concept ->
             val matchesQuery = searchQuery.isBlank() ||
                     concept.title.contains(searchQuery, ignoreCase = true) ||
                     concept.notes.contains(searchQuery, ignoreCase = true) ||
@@ -49,6 +52,20 @@ fun LearningTabScreen(
 
             val matchesPlatform = selectedCategory == null || selectedCategory == "All" || concept.learningPlatform == selectedCategory
             matchesQuery && matchesPlatform
+        }
+
+        when (sortOption) {
+            "PRIORITY" -> filtered.sortedBy {
+                when (it.priority) {
+                    "HIGH" -> 0
+                    "MEDIUM" -> 1
+                    "LOW" -> 2
+                    else -> 3
+                }
+            }
+            "DATE" -> filtered.sortedByDescending { it.createdAt }
+            "NAME" -> filtered.sortedBy { it.title.lowercase() }
+            else -> filtered.sortedBy { it.orderIndex }
         }
     }
 
@@ -60,23 +77,73 @@ fun LearningTabScreen(
     ) {
         Spacer(modifier = Modifier.height(8.dp))
 
-        // Learning Platform Filter Chips
-        if (platforms.size > 1) {
-            LazyRow(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                contentPadding = PaddingValues(vertical = 4.dp)
-            ) {
-                items(platforms) { plat ->
-                    val isSelected = (selectedCategory == plat) || (selectedCategory == null && plat == "All")
-                    FilterChip(
-                        selected = isSelected,
-                        onClick = {
-                            onCategorySelect(if (plat == "All") null else plat)
-                        },
-                        label = { Text(plat) },
-                        leadingIcon = if (isSelected) {
-                            { Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp)) }
-                        } else null
+        // Filter and Sort Row
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Learning Platform Filter Chips
+            if (platforms.size > 1) {
+                LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    contentPadding = PaddingValues(vertical = 4.dp),
+                    modifier = Modifier.weight(1f)
+                ) {
+                    items(platforms) { plat ->
+                        val isSelected = (selectedCategory == plat) || (selectedCategory == null && plat == "All")
+                        FilterChip(
+                            selected = isSelected,
+                            onClick = {
+                                onCategorySelect(if (plat == "All") null else plat)
+                            },
+                            label = { Text(plat) },
+                            leadingIcon = if (isSelected) {
+                                { Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp)) }
+                            } else null
+                        )
+                    }
+                }
+            } else {
+                Spacer(modifier = Modifier.weight(1f))
+            }
+
+            // Sort Dropdown Menu Button
+            Box {
+                IconButton(
+                    onClick = { showSortMenu = true },
+                    modifier = Modifier.testTag("sort_learning_button")
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Sort,
+                        contentDescription = "Sort Skills",
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                }
+
+                DropdownMenu(
+                    expanded = showSortMenu,
+                    onDismissRequest = { showSortMenu = false }
+                ) {
+                    DropdownMenuItem(
+                        text = { Text("Manual / Custom Order") },
+                        onClick = { sortOption = "ORDER"; showSortMenu = false },
+                        leadingIcon = { if (sortOption == "ORDER") Icon(Icons.Default.Check, null) }
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Priority (High to Low)") },
+                        onClick = { sortOption = "PRIORITY"; showSortMenu = false },
+                        leadingIcon = { if (sortOption == "PRIORITY") Icon(Icons.Default.Check, null) }
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Date Created (Newest)") },
+                        onClick = { sortOption = "DATE"; showSortMenu = false },
+                        leadingIcon = { if (sortOption == "DATE") Icon(Icons.Default.Check, null) }
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Name (A-Z)") },
+                        onClick = { sortOption = "NAME"; showSortMenu = false },
+                        leadingIcon = { if (sortOption == "NAME") Icon(Icons.Default.Check, null) }
                     )
                 }
             }

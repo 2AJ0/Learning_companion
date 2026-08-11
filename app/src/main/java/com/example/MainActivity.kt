@@ -154,91 +154,108 @@ class MainActivity : ComponentActivity() {
                         ) {
                             androidx.compose.animation.Crossfade(targetState = currentScreen) { screen ->
                                 if (screen == DrawerScreen.HOME) {
+                                    val pagerState = androidx.compose.foundation.pager.rememberPagerState(
+                                        initialPage = if (selectedTab == MainTab.LEARNING) 0 else 1,
+                                        pageCount = { 2 }
+                                    )
+
+                                    // Keep viewModel selectedTab synced with pagerState
+                                    LaunchedEffect(pagerState.currentPage) {
+                                        viewModel.selectedTab.value = if (pagerState.currentPage == 0) MainTab.LEARNING else MainTab.PROJECTS
+                                    }
+
                                     Column(modifier = Modifier.fillMaxSize()) {
                                         // Top Tabs: Learning & Active Projects
                                         TabRow(
-                                            selectedTabIndex = if (selectedTab == MainTab.LEARNING) 0 else 1,
+                                            selectedTabIndex = pagerState.currentPage,
                                             modifier = Modifier.testTag("main_tab_row")
                                         ) {
-                                    Tab(
-                                        selected = selectedTab == MainTab.LEARNING,
-                                        onClick = { viewModel.selectedTab.value = MainTab.LEARNING },
-                                        text = {
-                                            Text(
-                                                "Learning (${activeConcepts.size})",
-                                                fontWeight = if (selectedTab == MainTab.LEARNING) FontWeight.Bold else FontWeight.Normal
+                                            Tab(
+                                                selected = pagerState.currentPage == 0,
+                                                onClick = {
+                                                    scope.launch { pagerState.animateScrollToPage(0) }
+                                                },
+                                                text = {
+                                                    Text(
+                                                        "Learning (${activeConcepts.size})",
+                                                        fontWeight = if (pagerState.currentPage == 0) FontWeight.Bold else FontWeight.Normal
+                                                    )
+                                                },
+                                                modifier = Modifier.testTag("learning_tab_button")
                                             )
-                                        },
-                                        modifier = Modifier.testTag("learning_tab_button")
-                                    )
 
-                                    Tab(
-                                        selected = selectedTab == MainTab.PROJECTS,
-                                        onClick = { viewModel.selectedTab.value = MainTab.PROJECTS },
-                                        text = {
-                                            Text(
-                                                "Active Projects (${activeProjects.size})",
-                                                fontWeight = if (selectedTab == MainTab.PROJECTS) FontWeight.Bold else FontWeight.Normal
-                                            )
-                                        },
-                                        modifier = Modifier.testTag("projects_tab_button")
-                                    )
-                                }
-
-                                androidx.compose.animation.Crossfade(targetState = selectedTab) { tab ->
-                                    when (tab) {
-                                        MainTab.LEARNING -> {
-                                            LearningTabScreen(
-                                                concepts = activeConcepts,
-                                                searchQuery = searchQuery,
-                                                selectedCategory = selectedCategoryFilter,
-                                                onSearchQueryChange = { viewModel.searchQuery.value = it },
-                                                onCategorySelect = { viewModel.selectedCategoryFilter.value = it },
-                                                onToggleCompleted = { viewModel.toggleConceptCompleted(it) },
-                                                onOpenIdeas = { parent ->
-                                                    viewModel.selectedParentForIdeas.value = parent
+                                            Tab(
+                                                selected = pagerState.currentPage == 1,
+                                                onClick = {
+                                                    scope.launch { pagerState.animateScrollToPage(1) }
                                                 },
-                                                onEditConcept = { concept ->
-                                                    viewModel.conceptToEdit.value = concept
-                                                    viewModel.showAddConceptDialog.value = true
+                                                text = {
+                                                    Text(
+                                                        "Active Projects (${activeProjects.size})",
+                                                        fontWeight = if (pagerState.currentPage == 1) FontWeight.Bold else FontWeight.Normal
+                                                    )
                                                 },
-                                                onDeleteConcept = { id ->
-                                                    viewModel.deleteConcept(id)
-                                                },
-                                                onReorderConcept = { concept, moveUp ->
-                                                    viewModel.reorderConcept(concept, moveUp)
-                                                }
+                                                modifier = Modifier.testTag("projects_tab_button")
                                             )
                                         }
 
-                                        MainTab.PROJECTS -> {
-                                            ProjectsTabScreen(
-                                                projects = activeProjects,
-                                                searchQuery = searchQuery,
-                                                selectedStatus = selectedStatusFilter,
-                                                onSearchQueryChange = { viewModel.searchQuery.value = it },
-                                                onStatusSelect = { viewModel.selectedStatusFilter.value = it },
-                                                onToggleCompleted = { viewModel.toggleProjectCompleted(it) },
-                                                onUpdateStatus = { project, newStatus ->
-                                                    viewModel.updateProjectStatus(project, newStatus)
-                                                },
-                                                onOpenProjectDetails = { project ->
-                                                    selectedProjectForDetails = project
-                                                },
-                                                onEditProject = { project ->
-                                                    viewModel.projectToEdit.value = project
-                                                    viewModel.showAddProjectDialog.value = true
-                                                },
-                                                onDeleteProject = { id ->
-                                                    viewModel.deleteProject(id)
-                                                },
-                                                onReorderProject = { project, moveUp ->
-                                                    viewModel.reorderProject(project, moveUp)
+                                        androidx.compose.foundation.pager.HorizontalPager(
+                                            state = pagerState,
+                                            modifier = Modifier.fillMaxSize()
+                                        ) { page ->
+                                            when (page) {
+                                                0 -> {
+                                                    LearningTabScreen(
+                                                        concepts = activeConcepts,
+                                                        searchQuery = searchQuery,
+                                                        selectedCategory = selectedCategoryFilter,
+                                                        onSearchQueryChange = { viewModel.searchQuery.value = it },
+                                                        onCategorySelect = { viewModel.selectedCategoryFilter.value = it },
+                                                        onToggleCompleted = { viewModel.toggleConceptCompleted(it) },
+                                                        onOpenIdeas = { parent ->
+                                                            viewModel.selectedParentForIdeas.value = parent
+                                                        },
+                                                        onEditConcept = { concept ->
+                                                            viewModel.conceptToEdit.value = concept
+                                                            viewModel.showAddConceptDialog.value = true
+                                                        },
+                                                        onDeleteConcept = { id ->
+                                                            viewModel.deleteConcept(id)
+                                                        },
+                                                        onReorderConcept = { concept, moveUp ->
+                                                            viewModel.reorderConcept(concept, moveUp)
+                                                        }
+                                                    )
                                                 }
-                                            )
+
+                                                1 -> {
+                                                    ProjectsTabScreen(
+                                                        projects = activeProjects,
+                                                        searchQuery = searchQuery,
+                                                        selectedStatus = selectedStatusFilter,
+                                                        onSearchQueryChange = { viewModel.searchQuery.value = it },
+                                                        onStatusSelect = { viewModel.selectedStatusFilter.value = it },
+                                                        onToggleCompleted = { viewModel.toggleProjectCompleted(it) },
+                                                        onUpdateStatus = { project, newStatus ->
+                                                            viewModel.updateProjectStatus(project, newStatus)
+                                                        },
+                                                        onOpenProjectDetails = { project ->
+                                                            selectedProjectForDetails = project
+                                                        },
+                                                        onEditProject = { project ->
+                                                            viewModel.projectToEdit.value = project
+                                                            viewModel.showAddProjectDialog.value = true
+                                                        },
+                                                        onDeleteProject = { id ->
+                                                            viewModel.deleteProject(id)
+                                                        },
+                                                        onReorderProject = { project, moveUp ->
+                                                            viewModel.reorderProject(project, moveUp)
+                                                        }
+                                                    )
+                                                }
+                                            }
                                         }
-                                    }
-                                }
                                     } // Close Column inside HOME branch
                                 } else {
                                     when (screen) {
@@ -401,6 +418,7 @@ class MainActivity : ComponentActivity() {
                 if (showAddConceptDialog) {
                     AddEditConceptDialog(
                         concept = conceptToEdit,
+                        availablePlatforms = learningPlatforms,
                         onDismiss = { viewModel.showAddConceptDialog.value = false },
                         onSave = { title, platform, priority, ideas, notes ->
                             if (conceptToEdit != null) {
@@ -423,8 +441,9 @@ class MainActivity : ComponentActivity() {
                 if (showAddProjectDialog) {
                     AddEditProjectDialog(
                         project = projectToEdit,
+                        availablePlatforms = projectPlatforms,
                         onDismiss = { viewModel.showAddProjectDialog.value = false },
-                        onSave = { title, desc, status, techStack, repoUrl ->
+                        onSave = { title, desc, status, techStack, repoUrl, platform, priority ->
                             if (projectToEdit != null) {
                                 viewModel.updateProject(
                                     projectToEdit!!.copy(
@@ -432,11 +451,13 @@ class MainActivity : ComponentActivity() {
                                         description = desc,
                                         status = status,
                                         techStack = techStack,
-                                        repoUrl = repoUrl
+                                        repoUrl = repoUrl,
+                                        platform = platform,
+                                        priority = priority
                                     )
                                 )
                             } else {
-                                viewModel.addProject(title, desc, status, techStack, repoUrl)
+                                viewModel.addProject(title, desc, status, techStack, repoUrl, platform, priority)
                             }
                         }
                     )

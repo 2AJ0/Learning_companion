@@ -12,20 +12,23 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import com.example.data.db.LearningConcept
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun AddEditConceptDialog(
     concept: LearningConcept? = null,
+    availablePlatforms: List<String> = emptyList(),
     onDismiss: () -> Unit,
     onSave: (title: String, learningPlatform: String, priority: String, projectIdeas: String, notes: String) -> Unit
 ) {
     var title by remember { mutableStateOf(concept?.title ?: "") }
-    var learningPlatform by remember { mutableStateOf(concept?.learningPlatform ?: "YouTube") }
+    var learningPlatform by remember { mutableStateOf(concept?.learningPlatform ?: (availablePlatforms.firstOrNull() ?: "General")) }
+    var customPlatformInput by remember { mutableStateOf("") }
+    var isCustomPlatform by remember { mutableStateOf(false) }
+
     var priority by remember { mutableStateOf(concept?.priority ?: "MEDIUM") }
     var projectIdeas by remember { mutableStateOf(concept?.projectIdeas ?: "") }
     var notes by remember { mutableStateOf(concept?.notes ?: "") }
 
-    val platforms = listOf("YouTube", "Udemy", "Coursera", "Documentation", "FreeCodeCamp", "Other")
     val priorities = listOf("HIGH", "MEDIUM", "LOW")
 
     Dialog(onDismissRequest = onDismiss) {
@@ -54,7 +57,7 @@ fun AddEditConceptDialog(
                     value = title,
                     onValueChange = { title = it },
                     label = { Text("Skill Name *") },
-                    placeholder = { Text("e.g., Jetpack Compose State Management") },
+                    placeholder = { Text("Enter skill title") },
                     singleLine = true,
                     modifier = Modifier
                         .fillMaxWidth()
@@ -68,29 +71,46 @@ fun AddEditConceptDialog(
                         style = MaterialTheme.typography.labelLarge,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp),
+                        modifier = Modifier.fillMaxWidth()
                     ) {
-                        platforms.take(3).forEach { plat ->
+                        availablePlatforms.forEach { plat ->
                             FilterChip(
-                                selected = learningPlatform == plat,
-                                onClick = { learningPlatform = plat },
+                                selected = !isCustomPlatform && learningPlatform == plat,
+                                onClick = {
+                                    isCustomPlatform = false
+                                    learningPlatform = plat
+                                },
                                 label = { Text(plat) }
                             )
                         }
+
+                        FilterChip(
+                            selected = isCustomPlatform,
+                            onClick = {
+                                isCustomPlatform = true
+                            },
+                            label = { Text("+ Custom") }
+                        )
                     }
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        platforms.drop(3).forEach { plat ->
-                            FilterChip(
-                                selected = learningPlatform == plat,
-                                onClick = { learningPlatform = plat },
-                                label = { Text(plat) }
-                            )
-                        }
+
+                    if (isCustomPlatform || availablePlatforms.isEmpty()) {
+                        OutlinedTextField(
+                            value = if (isCustomPlatform) customPlatformInput else learningPlatform,
+                            onValueChange = {
+                                customPlatformInput = it
+                                learningPlatform = it
+                            },
+                            label = { Text("Platform Name") },
+                            placeholder = { Text("e.g., Coursera, Book, YouTube") },
+                            singleLine = true,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 4.dp)
+                        )
                     }
                 }
 
@@ -118,7 +138,7 @@ fun AddEditConceptDialog(
                     value = projectIdeas,
                     onValueChange = { projectIdeas = it },
                     label = { Text("Project Ideas") },
-                    placeholder = { Text("e.g., Build a custom stateful counter or quiz widget...") },
+                    placeholder = { Text("Describe application ideas for this skill") },
                     maxLines = 2,
                     modifier = Modifier
                         .fillMaxWidth()
@@ -128,8 +148,8 @@ fun AddEditConceptDialog(
                 OutlinedTextField(
                     value = notes,
                     onValueChange = { notes = it },
-                    label = { Text("Notes") },
-                    placeholder = { Text("Key takeaways, target goals, or reference links...") },
+                    label = { Text("Notes & References") },
+                    placeholder = { Text("Key takeaways or reference links") },
                     maxLines = 3,
                     modifier = Modifier
                         .fillMaxWidth()
@@ -147,8 +167,9 @@ fun AddEditConceptDialog(
                     Spacer(modifier = Modifier.width(8.dp))
                     Button(
                         onClick = {
+                            val finalPlatform = if (isCustomPlatform && customPlatformInput.isNotBlank()) customPlatformInput else learningPlatform
                             if (title.isNotBlank()) {
-                                onSave(title, learningPlatform, priority, projectIdeas, notes)
+                                onSave(title, finalPlatform, priority, projectIdeas, notes)
                                 onDismiss()
                             }
                         },
@@ -161,4 +182,3 @@ fun AddEditConceptDialog(
         }
     }
 }
-

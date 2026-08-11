@@ -479,15 +479,16 @@ fun SettingsScreen(
                     // Export Reports Button
                     OutlinedButton(
                         onClick = {
-                            if (feedbackInput.isBlank()) {
-                                Toast.makeText(context, "No report submitted yet. Tap 'Submit Report' first.", Toast.LENGTH_SHORT).show()
+                            val reportsContent = com.example.data.ReportManager.getReportsText(context)
+                            if (reportsContent.isBlank()) {
+                                Toast.makeText(context, "No reports found in reports.md. Tap 'Submit Report' to create one.", Toast.LENGTH_SHORT).show()
                             } else {
                                 val sendIntent = android.content.Intent().apply {
                                     action = android.content.Intent.ACTION_SEND
-                                    putExtra(android.content.Intent.EXTRA_TEXT, feedbackInput)
-                                    type = "text/plain"
+                                    putExtra(android.content.Intent.EXTRA_TEXT, reportsContent)
+                                    type = "text/markdown"
                                 }
-                                val shareIntent = android.content.Intent.createChooser(sendIntent, "Export Reports")
+                                val shareIntent = android.content.Intent.createChooser(sendIntent, "Export Reports (.md)")
                                 context.startActivity(shareIntent)
                             }
                         },
@@ -503,7 +504,7 @@ fun SettingsScreen(
                             modifier = Modifier.size(20.dp)
                         )
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("Export Reports", style = MaterialTheme.typography.labelLarge)
+                        Text("Export Reports (.md)", style = MaterialTheme.typography.labelLarge)
                     }
                 }
             }
@@ -596,20 +597,67 @@ fun SettingsScreen(
     }
 
     if (showExportDialog) {
-        val backupJson = remember(allSkills, allProjects, allIdeas) {
-            val skillsText = allSkills.joinToString(",\n  ") { "{\"title\":\"${it.title}\", \"platform\":\"${it.learningPlatform}\", \"completed\":${it.isCompleted}}" }
-            val projectsText = allProjects.joinToString(",\n  ") { "{\"title\":\"${it.title}\", \"techStack\":\"${it.techStack}\", \"completed\":${it.isCompleted}}" }
-            "{\n \"skills\": [\n  $skillsText\n ],\n \"projects\": [\n  $projectsText\n ]\n}"
+        var exportFormat by remember { mutableStateOf("MD") } // MD or JSON
+
+        val backupText = remember(allSkills, allProjects, allIdeas, exportFormat) {
+            if (exportFormat == "MD") {
+                val sb = StringBuilder()
+                sb.append("# Developer Companion - Learning Data Export\n\n")
+                sb.append("## Skills & Concepts To Learn\n")
+                if (allSkills.isEmpty()) {
+                    sb.append("*No skills recorded*\n")
+                } else {
+                    allSkills.forEach {
+                        val statusStr = if (it.isCompleted) "[x]" else "[ ]"
+                        sb.append("- $statusStr **${it.title}** (${it.learningPlatform}) - Priority: ${it.priority}\n")
+                        if (it.notes.isNotBlank()) sb.append("  - Notes: ${it.notes}\n")
+                    }
+                }
+
+                sb.append("\n## Projects\n")
+                if (allProjects.isEmpty()) {
+                    sb.append("*No projects recorded*\n")
+                } else {
+                    allProjects.forEach {
+                        val statusStr = if (it.isCompleted) "[x]" else "[ ]"
+                        sb.append("- $statusStr **${it.title}** [${it.platform}] - ${it.status}\n")
+                        if (it.description.isNotBlank()) sb.append("  - Description: ${it.description}\n")
+                        if (it.techStack.isNotBlank()) sb.append("  - Tech Stack: ${it.techStack}\n")
+                        if (it.featuresToAdd.isNotBlank()) sb.append("  - Features to Add: ${it.featuresToAdd}\n")
+                    }
+                }
+                sb.toString()
+            } else {
+                val skillsText = allSkills.joinToString(",\n  ") { "{\"title\":\"${it.title}\", \"platform\":\"${it.learningPlatform}\", \"completed\":${it.isCompleted}}" }
+                val projectsText = allProjects.joinToString(",\n  ") { "{\"title\":\"${it.title}\", \"techStack\":\"${it.techStack}\", \"completed\":${it.isCompleted}}" }
+                "{\n \"skills\": [\n  $skillsText\n ],\n \"projects\": [\n  $projectsText\n ]\n}"
+            }
         }
 
         AlertDialog(
             onDismissRequest = { showExportDialog = false },
-            title = { Text("Backup Data (JSON)") },
+            title = { Text("Backup & Export Data") },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        FilterChip(
+                            selected = exportFormat == "MD",
+                            onClick = { exportFormat = "MD" },
+                            label = { Text("Markdown (.md)") }
+                        )
+                        FilterChip(
+                            selected = exportFormat == "JSON",
+                            onClick = { exportFormat = "JSON" },
+                            label = { Text("JSON (.json)") }
+                        )
+                    }
+
                     Text("Copy this backup text to save or transfer your learning records:")
                     OutlinedTextField(
-                        value = backupJson,
+                        value = backupText,
                         onValueChange = {},
                         readOnly = true,
                         modifier = Modifier
@@ -621,8 +669,8 @@ fun SettingsScreen(
             confirmButton = {
                 Button(onClick = {
                     val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                    clipboard.setPrimaryClip(ClipData.newPlainText("Learning Companion Backup", backupJson))
-                    Toast.makeText(context, "Backup copied to clipboard!", Toast.LENGTH_SHORT).show()
+                    clipboard.setPrimaryClip(ClipData.newPlainText("Learning Companion Export", backupText))
+                    Toast.makeText(context, "Export ($exportFormat) copied to clipboard!", Toast.LENGTH_SHORT).show()
                     showExportDialog = false
                 }) {
                     Icon(imageVector = Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(16.dp))
@@ -639,21 +687,33 @@ fun SettingsScreen(
     }
 
     if (showSubmitReportDialog) {
+        val lastUpdated = remember(showSubmitReportDialog) {
+            com.example.data.ReportManager.getLastUpdatedTimestamp(context)
+        }
+
         AlertDialog(
             onDismissRequest = { showSubmitReportDialog = false },
             title = {
-                Text(
-                    text = "Submit Report/\nRecommendation",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.SemiBold
-                )
+                Column {
+                    Text(
+                        text = "Submit Report /\nRecommendation",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Text(
+                        text = "Last updated on: $lastUpdated",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(top = 4.dp)
+                    )
+                }
             },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedTextField(
                         value = reportDialogText,
                         onValueChange = { reportDialogText = it },
-                        placeholder = { Text("Write your feedback here...") },
+                        placeholder = { Text("Write your bug report or feature recommendation here...") },
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(180.dp),
@@ -663,15 +723,20 @@ fun SettingsScreen(
                 }
             },
             confirmButton = {
-                TextButton(
+                Button(
                     onClick = {
-                        feedbackInput = reportDialogText
-                        onUpdateFeedbackReport(reportDialogText)
-                        Toast.makeText(context, "Report saved successfully!", Toast.LENGTH_SHORT).show()
+                        if (reportDialogText.isNotBlank()) {
+                            val success = com.example.data.ReportManager.appendReport(context, reportDialogText)
+                            if (success) {
+                                feedbackInput = com.example.data.ReportManager.getReportsText(context)
+                                onUpdateFeedbackReport(feedbackInput)
+                                Toast.makeText(context, "Report appended to reports.md!", Toast.LENGTH_SHORT).show()
+                            }
+                        }
                         showSubmitReportDialog = false
                     }
                 ) {
-                    Text("Save")
+                    Text("Save & Append")
                 }
             },
             dismissButton = {

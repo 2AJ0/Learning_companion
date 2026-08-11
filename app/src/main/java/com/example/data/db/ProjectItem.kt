@@ -12,6 +12,8 @@ data class ProjectItem(
     val techStack: String = "",
     val repoUrl: String = "",
     val featuresToAdd: String = "", // Features to add checklist
+    val platform: String = "Android", // Project platform e.g. Android, Web, iOS, Desktop
+    val priority: String = "MEDIUM", // HIGH, MEDIUM, LOW
     val orderIndex: Int = 0,
     val isCompleted: Boolean = false,
     val createdAt: Long = System.currentTimeMillis(),

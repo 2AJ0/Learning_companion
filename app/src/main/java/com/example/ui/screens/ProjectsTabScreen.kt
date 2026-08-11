@@ -44,16 +44,35 @@ fun ProjectsTabScreen(
         "ON_HOLD" to "On Hold"
     )
 
-    val filteredProjects = remember(projects, searchQuery, selectedStatus) {
-        projects.filter { project ->
+    var sortOption by remember { mutableStateOf("ORDER") } // ORDER, PRIORITY, STATUS, DATE, NAME
+    var showSortMenu by remember { mutableStateOf(false) }
+
+    val filteredProjects = remember(projects, searchQuery, selectedStatus, sortOption) {
+        val filtered = projects.filter { project ->
             val matchesQuery = searchQuery.isBlank() ||
                     project.title.contains(searchQuery, ignoreCase = true) ||
                     project.description.contains(searchQuery, ignoreCase = true) ||
                     project.techStack.contains(searchQuery, ignoreCase = true) ||
+                    project.platform.contains(searchQuery, ignoreCase = true) ||
                     project.featuresToAdd.contains(searchQuery, ignoreCase = true)
 
             val matchesStatus = selectedStatus == null || selectedStatus == "ALL" || project.status == selectedStatus
             matchesQuery && matchesStatus
+        }
+
+        when (sortOption) {
+            "PRIORITY" -> filtered.sortedBy {
+                when (it.priority) {
+                    "HIGH" -> 0
+                    "MEDIUM" -> 1
+                    "LOW" -> 2
+                    else -> 3
+                }
+            }
+            "STATUS" -> filtered.sortedBy { it.status }
+            "DATE" -> filtered.sortedByDescending { it.createdAt }
+            "NAME" -> filtered.sortedBy { it.title.lowercase() }
+            else -> filtered.sortedBy { it.orderIndex }
         }
     }
 
@@ -65,23 +84,74 @@ fun ProjectsTabScreen(
     ) {
         Spacer(modifier = Modifier.height(8.dp))
 
-        // Status Filter Chips
-        LazyRow(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            contentPadding = PaddingValues(vertical = 4.dp)
+        // Status Filter Chips & Sort Row
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            items(statuses) { (code, label) ->
-                val isSelected = (selectedStatus == code) || (selectedStatus == null && code == "ALL")
-                FilterChip(
-                    selected = isSelected,
-                    onClick = {
-                        onStatusSelect(if (code == "ALL") null else code)
-                    },
-                    label = { Text(label) },
-                    leadingIcon = if (isSelected) {
-                        { Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp)) }
-                    } else null
-                )
+            LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                contentPadding = PaddingValues(vertical = 4.dp),
+                modifier = Modifier.weight(1f)
+            ) {
+                items(statuses) { (code, label) ->
+                    val isSelected = (selectedStatus == code) || (selectedStatus == null && code == "ALL")
+                    FilterChip(
+                        selected = isSelected,
+                        onClick = {
+                            onStatusSelect(if (code == "ALL") null else code)
+                        },
+                        label = { Text(label) },
+                        leadingIcon = if (isSelected) {
+                            { Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp)) }
+                        } else null
+                    )
+                }
+            }
+
+            Box {
+                IconButton(
+                    onClick = { showSortMenu = true },
+                    modifier = Modifier.testTag("sort_projects_button")
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Sort,
+                        contentDescription = "Sort Projects",
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                }
+
+                DropdownMenu(
+                    expanded = showSortMenu,
+                    onDismissRequest = { showSortMenu = false }
+                ) {
+                    DropdownMenuItem(
+                        text = { Text("Manual / Custom Order") },
+                        onClick = { sortOption = "ORDER"; showSortMenu = false },
+                        leadingIcon = { if (sortOption == "ORDER") Icon(Icons.Default.Check, null) }
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Priority (High to Low)") },
+                        onClick = { sortOption = "PRIORITY"; showSortMenu = false },
+                        leadingIcon = { if (sortOption == "PRIORITY") Icon(Icons.Default.Check, null) }
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Status") },
+                        onClick = { sortOption = "STATUS"; showSortMenu = false },
+                        leadingIcon = { if (sortOption == "STATUS") Icon(Icons.Default.Check, null) }
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Date Created (Newest)") },
+                        onClick = { sortOption = "DATE"; showSortMenu = false },
+                        leadingIcon = { if (sortOption == "DATE") Icon(Icons.Default.Check, null) }
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Name (A-Z)") },
+                        onClick = { sortOption = "NAME"; showSortMenu = false },
+                        leadingIcon = { if (sortOption == "NAME") Icon(Icons.Default.Check, null) }
+                    )
+                }
             }
         }
 
@@ -202,65 +272,103 @@ fun ProjectItemCard(
                             textDecoration = if (project.isCompleted) TextDecoration.LineThrough else TextDecoration.None
                         )
 
-                        // Status Badge with Dropdown Switcher
-                        Box {
-                            Surface(
-                                shape = RoundedCornerShape(8.dp),
-                                color = statusColor.copy(alpha = 0.15f),
-                                modifier = Modifier
-                                    .padding(top = 4.dp)
-                                    .clickable { showStatusMenu = true }
-                            ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+                        // Badges Row: Status, Platform, Priority
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(top = 4.dp)
+                        ) {
+                            // Status Badge with Dropdown Switcher
+                            Box {
+                                Surface(
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = statusColor.copy(alpha = 0.15f),
+                                    modifier = Modifier.clickable { showStatusMenu = true }
                                 ) {
-                                    Text(
-                                        text = statusLabel,
-                                        style = MaterialTheme.typography.labelSmall,
-                                        fontWeight = FontWeight.Bold,
-                                        color = statusColor
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+                                    ) {
+                                        Text(
+                                            text = statusLabel,
+                                            style = MaterialTheme.typography.labelSmall,
+                                            fontWeight = FontWeight.Bold,
+                                            color = statusColor
+                                        )
+                                        Icon(
+                                            imageVector = Icons.Default.ArrowDropDown,
+                                            contentDescription = "Change Status",
+                                            tint = statusColor,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                    }
+                                }
+
+                                DropdownMenu(
+                                    expanded = showStatusMenu,
+                                    onDismissRequest = { showStatusMenu = false }
+                                ) {
+                                    DropdownMenuItem(
+                                        text = { Text("Idea") },
+                                        onClick = {
+                                            onUpdateStatus("IDEA")
+                                            showStatusMenu = false
+                                        }
                                     )
-                                    Icon(
-                                        imageVector = Icons.Default.ArrowDropDown,
-                                        contentDescription = "Change Status",
-                                        tint = statusColor,
-                                        modifier = Modifier.size(16.dp)
+                                    DropdownMenuItem(
+                                        text = { Text("In Progress") },
+                                        onClick = {
+                                            onUpdateStatus("IN_PROGRESS")
+                                            showStatusMenu = false
+                                        }
+                                    )
+                                    DropdownMenuItem(
+                                        text = { Text("On Hold") },
+                                        onClick = {
+                                            onUpdateStatus("ON_HOLD")
+                                            showStatusMenu = false
+                                        }
+                                    )
+                                    DropdownMenuItem(
+                                        text = { Text("Mark Completed") },
+                                        onClick = {
+                                            onUpdateStatus("COMPLETED")
+                                            showStatusMenu = false
+                                        }
                                     )
                                 }
                             }
 
-                            DropdownMenu(
-                                expanded = showStatusMenu,
-                                onDismissRequest = { showStatusMenu = false }
+                            // Platform Badge
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.6f)
                             ) {
-                                DropdownMenuItem(
-                                    text = { Text("Idea") },
-                                    onClick = {
-                                        onUpdateStatus("IDEA")
-                                        showStatusMenu = false
-                                    }
+                                Text(
+                                    text = project.platform,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
                                 )
-                                DropdownMenuItem(
-                                    text = { Text("In Progress") },
-                                    onClick = {
-                                        onUpdateStatus("IN_PROGRESS")
-                                        showStatusMenu = false
-                                    }
-                                )
-                                DropdownMenuItem(
-                                    text = { Text("On Hold") },
-                                    onClick = {
-                                        onUpdateStatus("ON_HOLD")
-                                        showStatusMenu = false
-                                    }
-                                )
-                                DropdownMenuItem(
-                                    text = { Text("Mark Completed") },
-                                    onClick = {
-                                        onUpdateStatus("COMPLETED")
-                                        showStatusMenu = false
-                                    }
+                            }
+
+                            // Priority Badge
+                            val prioColor = when (project.priority) {
+                                "HIGH" -> MaterialTheme.colorScheme.error
+                                "LOW" -> MaterialTheme.colorScheme.outline
+                                else -> MaterialTheme.colorScheme.primary
+                            }
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = prioColor.copy(alpha = 0.12f)
+                            ) {
+                                Text(
+                                    text = project.priority,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = prioColor,
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                                 )
                             }
                         }

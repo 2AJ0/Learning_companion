@@ -34,6 +34,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     // Custom Platforms Management
+    private val prefs = application.getSharedPreferences("companion_prefs", android.content.Context.MODE_PRIVATE)
+
     val learningPlatforms = MutableStateFlow<List<String>>(emptyList())
     val projectPlatforms = MutableStateFlow<List<String>>(emptyList())
 
@@ -128,6 +130,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val database = AppDatabase.getDatabase(application)
         repository = LearningRepository(database.learningDao())
 
+        // Load saved platforms from SharedPreferences
+        val savedLearning = prefs.getStringSet("learning_platforms", null)
+        learningPlatforms.value = if (savedLearning != null) savedLearning.toList() else listOf("YouTube", "Udemy", "Coursera", "Documentation")
+
+        val savedProject = prefs.getStringSet("project_platforms", null)
+        projectPlatforms.value = if (savedProject != null) savedProject.toList() else listOf("Android", "Web", "iOS", "Flutter", "Desktop")
+
         // Remove any pre-seeded sample data
         viewModelScope.launch {
             repository.removeSampleTasksIfPresent()
@@ -170,23 +179,31 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun addLearningPlatform(platform: String) {
         val clean = platform.trim()
         if (clean.isNotBlank() && !learningPlatforms.value.contains(clean)) {
-            learningPlatforms.value = learningPlatforms.value + clean
+            val updated = learningPlatforms.value + clean
+            learningPlatforms.value = updated
+            prefs.edit().putStringSet("learning_platforms", updated.toSet()).apply()
         }
     }
 
     fun removeLearningPlatform(platform: String) {
-        learningPlatforms.value = learningPlatforms.value.filter { it != platform }
+        val updated = learningPlatforms.value.filter { it != platform }
+        learningPlatforms.value = updated
+        prefs.edit().putStringSet("learning_platforms", updated.toSet()).apply()
     }
 
     fun addProjectPlatform(platform: String) {
         val clean = platform.trim()
         if (clean.isNotBlank() && !projectPlatforms.value.contains(clean)) {
-            projectPlatforms.value = projectPlatforms.value + clean
+            val updated = projectPlatforms.value + clean
+            projectPlatforms.value = updated
+            prefs.edit().putStringSet("project_platforms", updated.toSet()).apply()
         }
     }
 
     fun removeProjectPlatform(platform: String) {
-        projectPlatforms.value = projectPlatforms.value.filter { it != platform }
+        val updated = projectPlatforms.value.filter { it != platform }
+        projectPlatforms.value = updated
+        prefs.edit().putStringSet("project_platforms", updated.toSet()).apply()
     }
 
     // Skills To Acquire & Concept Actions
@@ -250,18 +267,26 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             if (index == -1) return@launch
             val targetIndex = if (moveUp) index - 1 else index + 1
             if (targetIndex in list.indices) {
-                val other = list[targetIndex]
-                repository.updateConcept(concept.copy(orderIndex = other.orderIndex))
-                repository.updateConcept(other.copy(orderIndex = concept.orderIndex))
-            } else {
-                val newOrder = if (moveUp) concept.orderIndex - 1 else concept.orderIndex + 1
-                repository.updateConcept(concept.copy(orderIndex = newOrder))
+                val currentOrder = list.mapIndexed { idx, item -> item.copy(orderIndex = idx) }
+                val itemA = currentOrder[index]
+                val itemB = currentOrder[targetIndex]
+                repository.updateConcept(itemA.copy(orderIndex = itemB.orderIndex))
+                repository.updateConcept(itemB.copy(orderIndex = itemA.orderIndex))
             }
         }
     }
 
     // Project Actions
-    fun addProject(title: String, description: String, status: String, techStack: String, repoUrl: String, featuresToAdd: String = "") {
+    fun addProject(
+        title: String,
+        description: String,
+        status: String,
+        techStack: String,
+        repoUrl: String,
+        featuresToAdd: String = "",
+        platform: String = "Android",
+        priority: String = "MEDIUM"
+    ) {
         viewModelScope.launch {
             repository.insertProject(
                 ProjectItem(
@@ -270,7 +295,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     status = status,
                     techStack = techStack,
                     repoUrl = repoUrl,
-                    featuresToAdd = featuresToAdd
+                    featuresToAdd = featuresToAdd,
+                    platform = if (platform.isBlank()) "Android" else platform,
+                    priority = priority
                 )
             )
         }
@@ -313,12 +340,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             if (index == -1) return@launch
             val targetIndex = if (moveUp) index - 1 else index + 1
             if (targetIndex in list.indices) {
-                val other = list[targetIndex]
-                repository.updateProject(project.copy(orderIndex = other.orderIndex))
-                repository.updateProject(other.copy(orderIndex = project.orderIndex))
-            } else {
-                val newOrder = if (moveUp) project.orderIndex - 1 else project.orderIndex + 1
-                repository.updateProject(project.copy(orderIndex = newOrder))
+                val currentOrder = list.mapIndexed { idx, item -> item.copy(orderIndex = idx) }
+                val itemA = currentOrder[index]
+                val itemB = currentOrder[targetIndex]
+                repository.updateProject(itemA.copy(orderIndex = itemB.orderIndex))
+                repository.updateProject(itemB.copy(orderIndex = itemA.orderIndex))
             }
         }
     }
