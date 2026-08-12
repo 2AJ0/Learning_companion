@@ -125,7 +125,7 @@ fun ResumeUploadDialog(
                     value = notes,
                     onValueChange = { notes = it },
                     label = { Text("Revision / Summary Notes") },
-                    placeholder = { Text("e.g. Updated skills & recent Android projects") },
+                    placeholder = { Text("Enter revision notes") },
                     maxLines = 3,
                     modifier = Modifier
                         .fillMaxWidth()

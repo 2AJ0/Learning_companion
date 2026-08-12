@@ -74,7 +74,7 @@ fun ProjectDetailsDialog(
                     value = tags,
                     onValueChange = { tags = it },
                     label = { Text("Tags / Tech Stack") },
-                    placeholder = { Text("Technologies used (e.g., Kotlin, Compose)") },
+                    placeholder = { Text("Technologies used") },
                     singleLine = true,
                     modifier = Modifier
                         .fillMaxWidth()

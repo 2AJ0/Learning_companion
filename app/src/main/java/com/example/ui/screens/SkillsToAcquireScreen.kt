@@ -295,7 +295,7 @@ fun AddSkillToAcquireDialog(
                     value = title,
                     onValueChange = { title = it },
                     label = { Text("Skill Title") },
-                    placeholder = { Text("e.g., GraphQL, Rust, WebAssembly") },
+                    placeholder = { Text("Enter skill title") },
                     singleLine = true,
                     modifier = Modifier
                         .fillMaxWidth()

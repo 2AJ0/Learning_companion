@@ -21,9 +21,13 @@ fun AddEditConceptDialog(
     onSave: (title: String, learningPlatform: String, priority: String, projectIdeas: String, notes: String) -> Unit
 ) {
     var title by remember { mutableStateOf(concept?.title ?: "") }
-    var learningPlatform by remember { mutableStateOf(concept?.learningPlatform ?: (availablePlatforms.firstOrNull() ?: "General")) }
-    var customPlatformInput by remember { mutableStateOf("") }
-    var isCustomPlatform by remember { mutableStateOf(false) }
+    var isCustomPlatform by remember {
+        mutableStateOf(concept != null && concept.learningPlatform.isNotBlank() && concept.learningPlatform !in availablePlatforms)
+    }
+    var learningPlatform by remember { mutableStateOf(concept?.learningPlatform ?: "") }
+    var customPlatformInput by remember {
+        mutableStateOf(if (concept != null && concept.learningPlatform !in availablePlatforms) concept.learningPlatform else "")
+    }
 
     var priority by remember { mutableStateOf(concept?.priority ?: "MEDIUM") }
     var projectIdeas by remember { mutableStateOf(concept?.projectIdeas ?: "") }
@@ -72,40 +76,42 @@ fun AddEditConceptDialog(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
 
-                    FlowRow(
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                        verticalArrangement = Arrangement.spacedBy(6.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        availablePlatforms.forEach { plat ->
+                    if (availablePlatforms.isNotEmpty()) {
+                        FlowRow(
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            verticalArrangement = Arrangement.spacedBy(6.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            availablePlatforms.forEach { plat ->
+                                FilterChip(
+                                    selected = !isCustomPlatform && learningPlatform == plat,
+                                    onClick = {
+                                        isCustomPlatform = false
+                                        learningPlatform = plat
+                                    },
+                                    label = { Text(plat) }
+                                )
+                            }
+
                             FilterChip(
-                                selected = !isCustomPlatform && learningPlatform == plat,
+                                selected = isCustomPlatform,
                                 onClick = {
-                                    isCustomPlatform = false
-                                    learningPlatform = plat
+                                    isCustomPlatform = true
                                 },
-                                label = { Text(plat) }
+                                label = { Text("+ Custom") }
                             )
                         }
-
-                        FilterChip(
-                            selected = isCustomPlatform,
-                            onClick = {
-                                isCustomPlatform = true
-                            },
-                            label = { Text("+ Custom") }
-                        )
                     }
 
                     if (isCustomPlatform || availablePlatforms.isEmpty()) {
                         OutlinedTextField(
-                            value = if (isCustomPlatform) customPlatformInput else learningPlatform,
+                            value = customPlatformInput,
                             onValueChange = {
                                 customPlatformInput = it
                                 learningPlatform = it
                             },
                             label = { Text("Platform Name") },
-                            placeholder = { Text("e.g., Coursera, Book, YouTube") },
+                            placeholder = { Text("Enter platform name") },
                             singleLine = true,
                             modifier = Modifier
                                 .fillMaxWidth()

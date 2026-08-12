@@ -23,9 +23,13 @@ fun AddEditProjectDialog(
     var title by remember { mutableStateOf(project?.title ?: "") }
     var desc by remember { mutableStateOf(project?.description ?: "") }
     var status by remember { mutableStateOf(project?.status ?: "IN_PROGRESS") }
-    var platform by remember { mutableStateOf(project?.platform ?: (availablePlatforms.firstOrNull() ?: "Android")) }
-    var customPlatformInput by remember { mutableStateOf("") }
-    var isCustomPlatform by remember { mutableStateOf(false) }
+    var isCustomPlatform by remember {
+        mutableStateOf(project != null && project.platform.isNotBlank() && project.platform !in availablePlatforms)
+    }
+    var platform by remember { mutableStateOf(project?.platform ?: "") }
+    var customPlatformInput by remember {
+        mutableStateOf(if (project != null && project.platform !in availablePlatforms) project.platform else "")
+    }
 
     var priority by remember { mutableStateOf(project?.priority ?: "MEDIUM") }
     var techStack by remember { mutableStateOf(project?.techStack ?: "") }
@@ -91,38 +95,40 @@ fun AddEditProjectDialog(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
 
-                    FlowRow(
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                        verticalArrangement = Arrangement.spacedBy(6.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        availablePlatforms.forEach { plat ->
+                    if (availablePlatforms.isNotEmpty()) {
+                        FlowRow(
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            verticalArrangement = Arrangement.spacedBy(6.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            availablePlatforms.forEach { plat ->
+                                FilterChip(
+                                    selected = !isCustomPlatform && platform == plat,
+                                    onClick = {
+                                        isCustomPlatform = false
+                                        platform = plat
+                                    },
+                                    label = { Text(plat) }
+                                )
+                            }
+
                             FilterChip(
-                                selected = !isCustomPlatform && platform == plat,
-                                onClick = {
-                                    isCustomPlatform = false
-                                    platform = plat
-                                },
-                                label = { Text(plat) }
+                                selected = isCustomPlatform,
+                                onClick = { isCustomPlatform = true },
+                                label = { Text("+ Custom") }
                             )
                         }
-
-                        FilterChip(
-                            selected = isCustomPlatform,
-                            onClick = { isCustomPlatform = true },
-                            label = { Text("+ Custom") }
-                        )
                     }
 
                     if (isCustomPlatform || availablePlatforms.isEmpty()) {
                         OutlinedTextField(
-                            value = if (isCustomPlatform) customPlatformInput else platform,
+                            value = customPlatformInput,
                             onValueChange = {
                                 customPlatformInput = it
                                 platform = it
                             },
                             label = { Text("Platform / Target") },
-                            placeholder = { Text("e.g., Android, Web, iOS") },
+                            placeholder = { Text("Enter platform name") },
                             singleLine = true,
                             modifier = Modifier
                                 .fillMaxWidth()

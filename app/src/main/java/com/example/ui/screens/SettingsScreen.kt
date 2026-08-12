@@ -3,6 +3,7 @@ package com.example.ui.screens
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.content.Intent
 import android.widget.Toast
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -190,7 +191,7 @@ fun SettingsScreen(
                         OutlinedTextField(
                             value = newLearningPlatformInput,
                             onValueChange = { newLearningPlatformInput = it },
-                            placeholder = { Text("e.g. Pluralsight") },
+                            placeholder = { Text("Enter platform name") },
                             singleLine = true,
                             modifier = Modifier
                                 .weight(1f)
@@ -269,7 +270,7 @@ fun SettingsScreen(
                         OutlinedTextField(
                             value = newProjectPlatformInput,
                             onValueChange = { newProjectPlatformInput = it },
-                            placeholder = { Text("e.g. Flutter, GraphQL") },
+                            placeholder = { Text("Enter platform name") },
                             singleLine = true,
                             modifier = Modifier
                                 .weight(1f)
@@ -597,40 +598,86 @@ fun SettingsScreen(
     }
 
     if (showExportDialog) {
-        var exportFormat by remember { mutableStateOf("MD") } // MD or JSON
+        var exportFormat by remember { mutableStateOf("CSV") } // CSV, MD, or JSON
 
         val backupText = remember(allSkills, allProjects, allIdeas, exportFormat) {
-            if (exportFormat == "MD") {
-                val sb = StringBuilder()
-                sb.append("# Developer Companion - Learning Data Export\n\n")
-                sb.append("## Skills & Concepts To Learn\n")
-                if (allSkills.isEmpty()) {
-                    sb.append("*No skills recorded*\n")
-                } else {
-                    allSkills.forEach {
-                        val statusStr = if (it.isCompleted) "[x]" else "[ ]"
-                        sb.append("- $statusStr **${it.title}** (${it.learningPlatform}) - Priority: ${it.priority}\n")
-                        if (it.notes.isNotBlank()) sb.append("  - Notes: ${it.notes}\n")
-                    }
-                }
+            when (exportFormat) {
+                "CSV" -> {
+                    val sb = StringBuilder()
+                    sb.append("Type,ID,Title,Platform,Priority,Status,Description_or_Notes,TechStack_or_Ideas,DateCreated\n")
 
-                sb.append("\n## Projects\n")
-                if (allProjects.isEmpty()) {
-                    sb.append("*No projects recorded*\n")
-                } else {
-                    allProjects.forEach {
-                        val statusStr = if (it.isCompleted) "[x]" else "[ ]"
-                        sb.append("- $statusStr **${it.title}** [${it.platform}] - ${it.status}\n")
-                        if (it.description.isNotBlank()) sb.append("  - Description: ${it.description}\n")
-                        if (it.techStack.isNotBlank()) sb.append("  - Tech Stack: ${it.techStack}\n")
-                        if (it.featuresToAdd.isNotBlank()) sb.append("  - Features to Add: ${it.featuresToAdd}\n")
+                    allSkills.forEach { skill ->
+                        val status = if (skill.isCompleted) "Completed" else "In Progress"
+                        sb.append("SKILL,")
+                            .append("${skill.id},")
+                            .append("${skill.title.escapeCsv()},")
+                            .append("${skill.learningPlatform.escapeCsv()},")
+                            .append("${skill.priority.escapeCsv()},")
+                            .append("${status.escapeCsv()},")
+                            .append("${skill.notes.escapeCsv()},")
+                            .append("${skill.projectIdeas.escapeCsv()},")
+                            .append("${skill.createdAt}\n")
                     }
+
+                    allProjects.forEach { project ->
+                        sb.append("PROJECT,")
+                            .append("${project.id},")
+                            .append("${project.title.escapeCsv()},")
+                            .append("${project.platform.escapeCsv()},")
+                            .append("${project.priority.escapeCsv()},")
+                            .append("${project.status.escapeCsv()},")
+                            .append("${project.description.escapeCsv()},")
+                            .append("${project.techStack.escapeCsv()},")
+                            .append("${project.createdAt}\n")
+                    }
+
+                    allIdeas.forEach { idea ->
+                        sb.append("IDEA,")
+                            .append("${idea.id},")
+                            .append("${idea.ideaTitle.escapeCsv()},")
+                            .append("${idea.parentType.escapeCsv()},")
+                            .append("NORMAL,")
+                            .append("Active,")
+                            .append("${idea.ideaDescription.escapeCsv()},")
+                            .append("${idea.tags.escapeCsv()},")
+                            .append("${idea.createdAt}\n")
+                    }
+
+                    sb.toString()
                 }
-                sb.toString()
-            } else {
-                val skillsText = allSkills.joinToString(",\n  ") { "{\"title\":\"${it.title}\", \"platform\":\"${it.learningPlatform}\", \"completed\":${it.isCompleted}}" }
-                val projectsText = allProjects.joinToString(",\n  ") { "{\"title\":\"${it.title}\", \"techStack\":\"${it.techStack}\", \"completed\":${it.isCompleted}}" }
-                "{\n \"skills\": [\n  $skillsText\n ],\n \"projects\": [\n  $projectsText\n ]\n}"
+                "MD" -> {
+                    val sb = StringBuilder()
+                    sb.append("# Developer Companion - Learning Data Export\n\n")
+                    sb.append("## Skills & Concepts To Learn\n")
+                    if (allSkills.isEmpty()) {
+                        sb.append("*No skills recorded*\n")
+                    } else {
+                        allSkills.forEach {
+                            val statusStr = if (it.isCompleted) "[x]" else "[ ]"
+                            sb.append("- $statusStr **${it.title}** (${it.learningPlatform}) - Priority: ${it.priority}\n")
+                            if (it.notes.isNotBlank()) sb.append("  - Notes: ${it.notes}\n")
+                        }
+                    }
+
+                    sb.append("\n## Projects\n")
+                    if (allProjects.isEmpty()) {
+                        sb.append("*No projects recorded*\n")
+                    } else {
+                        allProjects.forEach {
+                            val statusStr = if (it.isCompleted) "[x]" else "[ ]"
+                            sb.append("- $statusStr **${it.title}** [${it.platform}] - ${it.status}\n")
+                            if (it.description.isNotBlank()) sb.append("  - Description: ${it.description}\n")
+                            if (it.techStack.isNotBlank()) sb.append("  - Tech Stack: ${it.techStack}\n")
+                            if (it.featuresToAdd.isNotBlank()) sb.append("  - Features to Add: ${it.featuresToAdd}\n")
+                        }
+                    }
+                    sb.toString()
+                }
+                else -> {
+                    val skillsText = allSkills.joinToString(",\n  ") { "{\"title\":\"${it.title}\", \"platform\":\"${it.learningPlatform}\", \"completed\":${it.isCompleted}}" }
+                    val projectsText = allProjects.joinToString(",\n  ") { "{\"title\":\"${it.title}\", \"techStack\":\"${it.techStack}\", \"completed\":${it.isCompleted}}" }
+                    "{\n \"skills\": [\n  $skillsText\n ],\n \"projects\": [\n  $projectsText\n ]\n}"
+                }
             }
         }
 
@@ -644,6 +691,12 @@ fun SettingsScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         FilterChip(
+                            selected = exportFormat == "CSV",
+                            onClick = { exportFormat = "CSV" },
+                            label = { Text("CSV (.csv)") },
+                            modifier = Modifier.testTag("export_csv_chip")
+                        )
+                        FilterChip(
                             selected = exportFormat == "MD",
                             onClick = { exportFormat = "MD" },
                             label = { Text("Markdown (.md)") }
@@ -655,7 +708,10 @@ fun SettingsScreen(
                         )
                     }
 
-                    Text("Copy this backup text to save or transfer your learning records:")
+                    Text(
+                        if (exportFormat == "CSV") "CSV format formatted with headers for analysis in Excel or Google Sheets:"
+                        else "Copy this backup text to save or transfer your learning records:"
+                    )
                     OutlinedTextField(
                         value = backupText,
                         onValueChange = {},
@@ -667,15 +723,34 @@ fun SettingsScreen(
                 }
             },
             confirmButton = {
-                Button(onClick = {
-                    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                    clipboard.setPrimaryClip(ClipData.newPlainText("Learning Companion Export", backupText))
-                    Toast.makeText(context, "Export ($exportFormat) copied to clipboard!", Toast.LENGTH_SHORT).show()
-                    showExportDialog = false
-                }) {
-                    Icon(imageVector = Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(16.dp))
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text("Copy to Clipboard")
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    OutlinedButton(onClick = {
+                        val sendIntent = Intent().apply {
+                            action = Intent.ACTION_SEND
+                            putExtra(Intent.EXTRA_TEXT, backupText)
+                            type = if (exportFormat == "CSV") "text/csv" else "text/plain"
+                        }
+                        val shareIntent = Intent.createChooser(sendIntent, "Export $exportFormat Data")
+                        context.startActivity(shareIntent)
+                    }) {
+                        Icon(imageVector = Icons.Default.Share, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Share / Save")
+                    }
+
+                    Button(onClick = {
+                        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                        clipboard.setPrimaryClip(ClipData.newPlainText("Learning Companion Export", backupText))
+                        Toast.makeText(context, "Export ($exportFormat) copied to clipboard!", Toast.LENGTH_SHORT).show()
+                        showExportDialog = false
+                    }) {
+                        Icon(imageVector = Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Copy")
+                    }
                 }
             },
             dismissButton = {
@@ -748,5 +823,14 @@ fun SettingsScreen(
             },
             shape = RoundedCornerShape(24.dp)
         )
+    }
+}
+
+private fun String.escapeCsv(): String {
+    val escaped = this.replace("\"", "\"\"")
+    return if (escaped.contains(",") || escaped.contains("\"") || escaped.contains("\n") || escaped.contains("\r")) {
+        "\"$escaped\""
+    } else {
+        escaped
     }
 }

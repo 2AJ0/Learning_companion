@@ -132,14 +132,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
         // Load saved platforms from SharedPreferences
         val savedLearning = prefs.getStringSet("learning_platforms", null)
-        learningPlatforms.value = if (savedLearning != null) savedLearning.toList() else listOf("YouTube", "Udemy", "Coursera", "Documentation")
+        learningPlatforms.value = if (savedLearning != null) savedLearning.toList() else emptyList()
 
         val savedProject = prefs.getStringSet("project_platforms", null)
-        projectPlatforms.value = if (savedProject != null) savedProject.toList() else listOf("Android", "Web", "iOS", "Flutter", "Desktop")
+        projectPlatforms.value = if (savedProject != null) savedProject.toList() else emptyList()
 
-        // Remove any pre-seeded sample data
+        // Initialize database state
         viewModelScope.launch {
-            repository.removeSampleTasksIfPresent()
             repository.seedSampleDataIfEmpty()
         }
 
